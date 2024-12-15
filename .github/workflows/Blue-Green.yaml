@@ -99,7 +99,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
+    - name: Checkout Code
+      uses: actions/checkout@v3
+      
     - name: set up aws credentilas
       uses: Sumanshu-Nankana/setup-aws-cli@v1
       with:
