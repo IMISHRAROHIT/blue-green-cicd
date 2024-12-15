@@ -1,0 +1,100 @@
+name: Blue-Green Deployment
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    name: Build and Push Image
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Log in to DockerHub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Build Docker Image
+      run: |
+        docker build -t blue-green:${{ github.sha }} .
+        docker tag blue-green:${{ github.sha }} imishrarohit/blue-green:latest
+
+    - name: Push Docker Image
+      run: |
+        docker push imishrarohit/blue-green:latest
+  deploy:
+    name: Deploy to Green Environment
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v2
+      
+    - name: Set up Kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'latest'
+        
+    - name: set up aws credentilas
+      uses: Sumanshu-Nankana/setup-aws-cli@v1
+      with:
+          region: 'us-east-1'
+          access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+           
+    - name: Install kubectl
+      run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
+
+    - name: Kubectl Action
+      uses: tale/kubectl-action@v1
+      with:
+        base64-kube-config: ${{ secrets.KUBECONFIG }}
+    - run:
+         kubectl apply -f deployment.yaml -n green
+        
+    - name: Deploy to Green Environment
+      #uses: tale/kubectl-action@v1
+      #with:
+        #base64-kube-config: ${{ secrets.KUBECONFIG }}
+      run: |
+          aws eks update-kubeconfig --name blue-green-cluster --region us-east-1
+          kubectl get nodes
+          kubectl apply -f ./kubernetes/deployment.yaml
+
+  switch:
+    name: Switch Traffic
+    needs: deploy
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: set up aws credentilas
+      uses: Sumanshu-Nankana/setup-aws-cli@v1
+      with:
+          region: 'us-east-1'
+          access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          
+    - name: Switch Load Balancer to Green   
+      run: |
+        aws eks update-kubeconfig --name blue-green-cluster --region us-east-1
+        kubectl patch service blue-green-service --namespace=default -p '{"spec":{"selector":{"environment":"green"}}}'
+
+    - name: Validate Green Deployment
+      run: |
+        # Add custom health checks or validation here
+        kubectl get pods --namespace=green
+
+    - name: Scale Down Blue Deployment
+      run: |
+        kubectl scale deployment/blue-green --namespace=blue --replicas=0
