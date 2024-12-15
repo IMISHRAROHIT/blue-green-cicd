@@ -69,7 +69,7 @@ jobs:
       run: |
           aws eks update-kubeconfig --name blue-green-cluster --region us-east-1
           kubectl get nodes
-          kubectl apply -f ./kubernetes/deployment.yaml
+          kubectl apply -f deployment.yaml
 
   switch:
     name: Switch Traffic
