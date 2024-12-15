@@ -32,6 +32,10 @@ jobs:
     - name: Increment Version
       id: versioning
       run: |
+        if [ ! -f VERSION ]; then
+        echo "VERSION file not found. Initializing with version 1."
+        echo "1" > VERSION
+        fi
         echo "Previous version: $(cat VERSION)"
         new_version=$(($(cat VERSION) + 1))
         echo "${new_version}" > VERSION
