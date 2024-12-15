@@ -88,7 +88,7 @@ jobs:
     - name: Switch Load Balancer to Green   
       run: |
         aws eks update-kubeconfig --name blue-green-cluster --region us-east-1
-        kubectl patch service blue-green-service --namespace=default -p '{"spec":{"selector":{"environment":"green"}}}'
+        kubectl patch service blue-green-service --namespace=green -p '{"spec":{"selector":{"environment":"blue"}}}'
 
     - name: Validate Green Deployment
       run: |
@@ -97,4 +97,4 @@ jobs:
 
     - name: Scale Down Blue Deployment
       run: |
-        kubectl scale deployment/blue-green --namespace=blue --replicas=0
+        kubectl scale deployment/blue-green --namespace=green --replicas=0
