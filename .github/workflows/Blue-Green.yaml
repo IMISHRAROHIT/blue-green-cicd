@@ -59,8 +59,9 @@ jobs:
       uses: tale/kubectl-action@v1
       with:
         base64-kube-config: ${{ secrets.KUBECONFIG }}
-    - run:
+    - run: |
          kubectl apply -f deployment.yaml -n green
+         kubectl get pods -n green
         
     - name: Deploy to Green Environment
       #uses: tale/kubectl-action@v1
@@ -68,11 +69,11 @@ jobs:
         #base64-kube-config: ${{ secrets.KUBECONFIG }}
       run: |
           aws eks update-kubeconfig --name blue-green-cluster --region us-east-1
-          kubectl get nodes
+          kubectl get pods -n green
           kubectl apply -f deployment.yaml
 
   switch:
-    name: Switch Traffic
+    name: Switch Traffic to blue
     needs: deploy
     runs-on: ubuntu-latest
 
@@ -85,10 +86,11 @@ jobs:
           access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
           secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           
-    - name: Switch Load Balancer to Green   
+    - name: Switch Load Balancer to blue   
       run: |
         aws eks update-kubeconfig --name blue-green-cluster --region us-east-1
         kubectl patch service blue-green-service --namespace=green -p '{"spec":{"selector":{"namespace":"blue"}}}'
+        kubectl get pods -n blue
 
     - name: Validate Green Deployment
       run: |
@@ -97,4 +99,4 @@ jobs:
 
     - name: Scale Down Blue Deployment
       run: |
-        kubectl scale deployment/blue-green --namespace=green --replicas=0
+        kubectl scale deployment/blue-green --namespace=green --replicas=1
