@@ -28,6 +28,23 @@ jobs:
     - name: Push Docker Image
       run: |
         docker push imishrarohit/blue-green:latest
+
+    - name: Increment Version
+      id: versioning
+      run: |
+        echo "Previous version: $(cat VERSION)"
+        new_version=$(($(cat VERSION) + 1))
+        echo "${new_version}" > VERSION
+        echo "New version: ${new_version}"
+        echo "VERSION=${new_version}" >> $GITHUB_ENV
+
+    # Step 4: Generate changelog
+    - name: Generate Changelog
+      run: |
+        echo "Generating changelog for version ${{ env.VERSION }}"
+        echo "## Changelog for version ${{ env.VERSION }}" > CHANGELOG.md
+        
+        
   deploy:
     name: Deploy to Green Environment
     needs: build
@@ -70,9 +87,10 @@ jobs:
           aws eks update-kubeconfig --name blue-green-cluster --region us-east-1
           kubectl get nodes
           kubectl apply -f deployment.yaml
+          kubectl rollout status deployment/blue-green -n green
 
   switch:
-    name: Switch Traffic
+    name: Switch Traffic to blue
     needs: deploy
     runs-on: ubuntu-latest
 
@@ -85,16 +103,33 @@ jobs:
           access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
           secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           
-    - name: Switch Load Balancer to Green   
-      run: |
-        aws eks update-kubeconfig --name blue-green-cluster --region us-east-1
-        kubectl patch service blue-green-service --namespace=green -p '{"spec":{"selector":{"namespace":"blue"}}}'
-
     - name: Validate Green Deployment
       run: |
+        aws eks update-kubeconfig --name blue-green-cluster --region us-east-1     
         # Add custom health checks or validation here
         kubectl get pods --namespace=green
 
-    - name: Scale Down Blue Deployment
+    - name: Health Check for Green
+      id: healthcheck
       run: |
-        kubectl scale deployment/blue-green --namespace=green --replicas=0
+       RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://a612f295ab3be46a4a074aed3aef6f4d-1118818387.us-east-1.elb.amazonaws.com:3000/)
+       if [ "$RESPONSE" -ne 200 ]; then
+       echo "Health check failed. Rolling back."
+       exit 1
+       else
+       echo "Health check passed."
+       fi
+
+    - name: Rollback to Blue
+      if: failure()
+      run: |
+       aws eks update-kubeconfig --name blue-green-cluster --region us-east-1
+       echo "Rolling back to Blue environment..."
+       kubectl apply -f service-blue.yaml
+
+    - name: Push Version and Changelog
+      uses: ad-m/github-push-action@v0.6.0
+      with:
+        branch: master
+        force: true
+        commit_message: "Release version ${{ env.VERSION }} with changelog"
