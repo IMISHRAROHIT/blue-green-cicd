@@ -47,8 +47,14 @@ jobs:
       run: |
         echo "Generating changelog for version ${{ env.VERSION }}"
         echo "## Changelog for version ${{ env.VERSION }}" > CHANGELOG.md
-        
-        
+
+    - name: Push Version and Changelog
+      uses: ad-m/github-push-action@v0.6.0
+      with:
+        branch: master
+        force: true
+        commit_message: "Release version ${{ env.VERSION }} with changelog"
+              
   deploy:
     name: Deploy to Green Environment
     needs: build
