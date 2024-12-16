@@ -46,6 +46,12 @@ jobs:
         echo "- Updated to version ${VERSION}" >> CHANGELOG.md
         echo "" >> CHANGELOG.md
 
+    - name: Stage Files
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add VERSION CHANGELOG.md
+
     - name: Commit and Push Changes
       uses: ad-m/github-push-action@v0.6.0
       with:
