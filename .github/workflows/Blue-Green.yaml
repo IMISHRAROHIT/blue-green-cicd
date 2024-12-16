@@ -140,7 +140,7 @@ jobs:
        aws eks update-kubeconfig --name blue-green-cluster --region us-east-1
        echo "Rolling back to Blue environment..."
        kubectl apply -f service-blue.yaml
-       kubectl rollout status deployment/blue-green -n blue
+    
        kubectl get pods --namespace=blue
        kubectl scale deployment blue-green --replicas=0 -n green
        kubectl get pods --namespace=green
