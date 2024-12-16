@@ -136,7 +136,6 @@ jobs:
 
   
     - name: Rollback to Blue
-      if: failure()
       run: |
        aws eks update-kubeconfig --name blue-green-cluster --region us-east-1
        echo "Rolling back to Blue environment..."
