@@ -30,11 +30,9 @@ jobs:
         docker push imishrarohit/blue-green:latest
 
     - name: Increment Version
-      id: versioning
       run: |
         if [ ! -f VERSION ]; then
-        echo "VERSION file not found. Initializing with version 1."
-        echo "1" > VERSION
+          echo "1" > VERSION
         fi
         echo "Previous version: $(cat VERSION)"
         new_version=$(($(cat VERSION) + 1))
@@ -42,18 +40,19 @@ jobs:
         echo "New version: ${new_version}"
         echo "VERSION=${new_version}" >> $GITHUB_ENV
 
-    # Step 4: Generate changelog
-    - name: Generate Changelog
+    - name: Update Changelog
       run: |
-        echo "Generating changelog for version ${{ env.VERSION }}"
-        echo "## Changelog for version ${{ env.VERSION }}" > CHANGELOG.md
+        echo "## Version ${VERSION} - $(date +"%Y-%m-%d")" >> CHANGELOG.md
+        echo "- Updated to version ${VERSION}" >> CHANGELOG.md
+        echo "" >> CHANGELOG.md
 
-    - name: Push Version and Changelog
+    - name: Commit and Push Changes
       uses: ad-m/github-push-action@v0.6.0
       with:
-        branch: master
-        force: true
-        commit_message: "Release version ${{ env.VERSION }} with changelog"
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        branch: main
+        commit_message: "Incremented version to ${VERSION} and updated changelog"
+ 
               
   deploy:
     name: Deploy to Green Environment
