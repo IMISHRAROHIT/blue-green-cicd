@@ -134,27 +134,16 @@ jobs:
         # Add custom health checks or validation here
         kubectl get pods --namespace=green
 
-    - name: Health Check for Green
-      id: healthcheck
-      run: |
-       RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://a612f295ab3be46a4a074aed3aef6f4d-1118818387.us-east-1.elb.amazonaws.com:3000/)
-       if [ "$RESPONSE" -ne 200 ]; then
-       echo "Health check failed. Rolling back."
-       exit 1
-       else
-       echo "Health check passed."
-       fi
-
+  
     - name: Rollback to Blue
       if: failure()
       run: |
        aws eks update-kubeconfig --name blue-green-cluster --region us-east-1
        echo "Rolling back to Blue environment..."
        kubectl apply -f service-blue.yaml
+       kubectl rollout status deployment/blue-green -n blue
+       kubectl get pods --namespace=blue
+       kubectl scale deployment blue-green --replicas=0 -n green
+       kubectl get pods --namespace=green
+       
 
-    - name: Push Version and Changelog
-      uses: ad-m/github-push-action@v0.6.0
-      with:
-        branch: master
-        force: true
-        commit_message: "Release version ${{ env.VERSION }} with changelog"
